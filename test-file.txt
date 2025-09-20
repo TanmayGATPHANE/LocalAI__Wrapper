@@ -1,0 +1,10 @@
+This is a test file for the Ollama chatbot.
+
+The file contains some sample text that the AI should be able to read and analyze.
+
+Key points:
+1. File upload functionality working
+2. Text content should be readable
+3. AI should respond based on this content
+
+If you can read this, the file upload feature is working correctly!

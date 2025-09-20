@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-input { width: 300px; padding: 10px; margin: 10px 0; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Input Field Test</h1>
+    
+    <div class="status" id="status">Testing input functionality...</div>
+    
+    <textarea id="test-input" class="test-input" placeholder="Type here to test..."></textarea>
+    <button onclick="testInput()">Test Input</button>
+    
+    <script>
+        function updateStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+        
+        function testInput() {
+            const input = document.getElementById('test-input');
+            const value = input.value.trim();
+            
+            if (value) {
+                updateStatus('✅ Input working! You typed: ' + value, 'success');
+                input.value = '';
+            } else {
+                updateStatus('❌ No input detected. Try typing something.', 'error');
+            }
+        }
+        
+        // Test input on page load
+        window.addEventListener('load', () => {
+            const input = document.getElementById('test-input');
+            input.focus();
+            updateStatus('Input field ready. Try typing.', 'success');
+        });
+    </script>
+</body>
+</html>

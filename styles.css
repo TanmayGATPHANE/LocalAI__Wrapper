@@ -72,7 +72,7 @@ body {
 /* ===== SIDEBAR ===== */
 .sidebar {
     width: var(--sidebar-width);
-    background: var(--background);
+    background: var(--sidebar-bg, var(--background));
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
@@ -199,12 +199,13 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    background: var(--chat-bg, var(--background));
 }
 
 /* ===== TOP BAR ===== */
 .top-bar {
     height: var(--topbar-height);
-    background: var(--background);
+    background: var(--surface-elevated, var(--surface));
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
@@ -214,6 +215,7 @@ body {
     top: 0;
     z-index: 50;
     box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(8px);
 }
 
 .top-bar-left h1 {
@@ -373,17 +375,23 @@ body {
 .input-group input, .select-group select {
     width: 100%;
     padding: 12px 12px 12px 40px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--input-border, var(--border));
     border-radius: var(--border-radius);
     font-size: 14px;
-    background: var(--background);
+    background: var(--input-bg, var(--background));
+    color: var(--input-text, var(--text-primary));
     transition: all 0.2s ease;
+}
+
+.input-group input::placeholder, .select-group select::placeholder {
+    color: var(--input-placeholder, var(--text-muted));
+    opacity: 1;
 }
 
 .input-group input:focus, .select-group select:focus {
     outline: none;
-    border-color: var(--primary-500);
-    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+    border-color: var(--input-focus, var(--primary-500));
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
 }
 
 .btn-primary {
@@ -478,6 +486,7 @@ body {
     overflow-y: auto;
     min-height: 400px;
     max-height: calc(100vh - 300px);
+    background: var(--chat-bg, var(--background));
 }
 
 .message-group {
@@ -567,7 +576,8 @@ body {
 /* ===== CHAT INPUT ===== */
 .chat-input-container {
     border-top: 1px solid var(--border);
-    background: var(--background);
+    background: var(--chat-bg, var(--surface));
+    backdrop-filter: blur(8px);
 }
 
 .input-wrapper {
@@ -575,6 +585,7 @@ body {
     display: flex;
     align-items: end;
     gap: 12px;
+    background: var(--chat-bg, var(--surface));
 }
 
 .input-actions-left, .input-actions-right {
@@ -585,20 +596,20 @@ body {
 .btn-input {
     width: 36px;
     height: 36px;
-    border: 1px solid var(--border);
-    background: var(--background);
+    border: 1px solid var(--input-border);
+    background: var(--button-bg, var(--surface));
     border-radius: var(--border-radius);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s ease;
-    color: var(--text-secondary);
+    color: var(--button-text, var(--text-secondary));
 }
 
 .btn-input:hover {
-    background: var(--gray-50);
-    border-color: var(--gray-300);
+    background: var(--button-hover, var(--gray-50));
+    border-color: var(--border-light);
     color: var(--text-primary);
 }
 
@@ -607,25 +618,33 @@ body {
     min-height: 44px;
     max-height: 120px;
     padding: 12px 16px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--input-border);
     border-radius: var(--border-radius-lg);
     resize: none;
     font-family: inherit;
     font-size: 14px;
     line-height: 1.5;
-    background: var(--background);
+    background: var(--input-bg);
+    color: var(--input-text, var(--text-primary));
     transition: all 0.2s ease;
+}
+
+#message-input::placeholder {
+    color: var(--input-placeholder, var(--text-muted));
+    opacity: 1;
 }
 
 #message-input:focus {
     outline: none;
-    border-color: var(--primary-500);
-    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+    border-color: var(--input-focus);
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
 }
 
 #message-input:disabled {
     background: var(--gray-50);
     color: var(--text-muted);
+    opacity: 0.7;
+    cursor: not-allowed;
 }
 
 .btn-send {
@@ -896,4 +915,297 @@ body {
 .sidebar-nav::-webkit-scrollbar-thumb:hover,
 .panel-content::-webkit-scrollbar-thumb:hover {
     background: var(--gray-400);
+}
+
+/* ===== TOAST NOTIFICATIONS ===== */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.toast {
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: var(--border-radius);
+    padding: 12px 16px;
+    box-shadow: var(--shadow-md);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 300px;
+    max-width: 400px;
+    animation: slideInRight 0.3s ease;
+    pointer-events: auto;
+}
+
+.toast-info {
+    border-left: 4px solid var(--primary-500);
+}
+
+.toast-success {
+    border-left: 4px solid var(--success-500);
+}
+
+.toast-warning {
+    border-left: 4px solid var(--warning-500);
+}
+
+.toast-error {
+    border-left: 4px solid var(--error-500);
+}
+
+.toast i {
+    flex-shrink: 0;
+}
+
+.toast-info i {
+    color: var(--primary-500);
+}
+
+.toast-success i {
+    color: var(--success-500);
+}
+
+.toast-warning i {
+    color: var(--warning-500);
+}
+
+.toast-error i {
+    color: var(--error-500);
+}
+
+.toast span {
+    flex: 1;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.2s ease;
+}
+
+.toast-close:hover {
+    color: var(--text-primary);
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* ===== ENHANCED STATUS INDICATORS ===== */
+.server-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.server-status.connected {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success-600);
+}
+
+.server-status.connecting {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning-600);
+}
+
+.server-status.disconnected {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error-600);
+}
+
+.server-status.error {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--error-600);
+}
+
+.server-status i {
+    font-size: 8px;
+}
+
+.current-model {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* ===== ENHANCED FORM STYLES ===== */
+.btn-secondary {
+    background: var(--surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-secondary:hover {
+    background: var(--gray-100);
+    border-color: var(--gray-300);
+}
+
+.btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ===== MESSAGE ENHANCEMENTS ===== */
+.message-group.loading .message-text::after {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--primary-200);
+    border-top: 2px solid var(--primary-500);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 8px;
+}
+
+.model-tag {
+    background: var(--primary-100);
+    color: var(--primary-700);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.provider-tag {
+    background: var(--gray-100);
+    color: var(--gray-600);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.system-group {
+    margin: 16px 0;
+}
+
+.system-group .message-avatar {
+    background: var(--warning-100);
+    color: var(--warning-600);
+}
+
+.system-group.error .message-avatar {
+    background: var(--error-100);
+    color: var(--error-600);
+}
+
+/* ===== ENHANCED DARK MODE THEME ===== */
+.theme-light {
+    --background: #ffffff;
+    --surface: #f8fafc;
+    --surface-elevated: #ffffff;
+    --border: #e2e8f0;
+    --border-light: #f1f5f9;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --input-bg: #ffffff;
+    --input-border: #e2e8f0;
+    --input-focus: #3b82f6;
+    --button-bg: #f8fafc;
+    --button-hover: #f1f5f9;
+    --sidebar-bg: #f8fafc;
+    --chat-bg: #ffffff;
+}
+
+.theme-dark {
+    /* Modern dark background palette */
+    --background: #0a0e1a;
+    --surface: #151b2b;
+    --surface-elevated: #1e2538;
+    --border: #2d3748;
+    --border-light: #3a4553;
+    
+    /* Elegant text colors */
+    --text-primary: #f7fafc;
+    --text-secondary: #e2e8f0;
+    --text-muted: #a0aec0;
+    
+    /* Input styling for dark mode */
+    --input-bg: #1a202c;
+    --input-border: #2d3748;
+    --input-focus: #4299e1;
+    --input-text: #f7fafc;
+    --input-placeholder: #718096;
+    
+    /* Button styling */
+    --button-bg: #2d3748;
+    --button-hover: #3a4553;
+    --button-text: #e2e8f0;
+    
+    /* Sidebar and chat areas */
+    --sidebar-bg: #0f1419;
+    --chat-bg: #151b2b;
+    
+    /* Override gray colors for dark theme */
+    --gray-50: #1a202c;
+    --gray-100: #2d3748;
+    --gray-200: #3a4553;
+    --gray-300: #4a5568;
+    --gray-400: #718096;
+    --gray-500: #a0aec0;
+    --gray-600: #cbd5e0;
+    --gray-700: #e2e8f0;
+    --gray-800: #f7fafc;
+    --gray-900: #ffffff;
+    
+    /* Enhanced primary colors for dark mode */
+    --primary-50: #1a365d;
+    --primary-100: #2c5282;
+    --primary-500: #4299e1;
+    --primary-600: #3182ce;
+    --primary-700: #2b6cb0;
+    
+    /* Status colors adjusted for dark mode */
+    --success-500: #48bb78;
+    --success-600: #38a169;
+    --warning-500: #ed8936;
+    --warning-600: #dd6b20;
+    --error-500: #f56565;
+    --error-600: #e53e3e;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }

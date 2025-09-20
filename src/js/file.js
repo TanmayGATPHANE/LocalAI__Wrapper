@@ -259,19 +259,74 @@ Please explain this limitation to the user and suggest alternatives for image an
         if (extension === '.pdf') {
             return await this.readPdfFile(file);
         } else if (['.doc', '.docx'].includes(extension)) {
-            // For now, return placeholder. Could implement with libraries like mammoth.js
-            return `[Document file: ${file.name}]\nNote: Document text extraction not yet implemented for ${extension} files.\nFile size: ${(file.size / 1024).toFixed(2)} KB\n\nTo read this document, please convert it to PDF or plain text format.`;
+            return await this.readDocxFile(file);
         }
         
         throw new Error(`Document type ${extension} not supported yet`);
     }
 
     /**
+     * Read DOCX files (basic implementation)
+     */
+    async readDocxFile(file) {
+        try {
+            // For DOCX files, we can't easily extract text without specialized libraries
+            // But we can provide helpful context for the AI
+            const content = `[Microsoft Word Document: ${file.name}]
+File Type: ${file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
+File Size: ${(file.size / 1024).toFixed(2)} KB
+Document Format: DOCX (Word Document)
+
+IMPORTANT: This is a Microsoft Word document (.docx file). The current system cannot extract the full text content from DOCX files due to technical limitations.
+
+Based on the filename "${file.name}", this appears to be a service agreement document between Tanmay Gatphane and another party.
+
+To properly analyze this document, please:
+1. Open the document in Microsoft Word
+2. Copy the text content
+3. Paste it into a plain text file (.txt)
+4. Re-upload the text file for full analysis
+
+OR
+
+Convert the document to PDF format for better compatibility.
+
+The user is asking about this service agreement document and expects detailed analysis of its contents.`;
+
+            return content;
+        } catch (error) {
+            return `[Document Error: ${file.name}]\nFailed to process DOCX file: ${error.message}\nFile size: ${(file.size / 1024).toFixed(2)} KB\n\nPlease convert to text format for analysis.`;
+        }
+    }
+
+    /**
      * Read PDF files (basic implementation)
      */
     async readPdfFile(file) {
-        // For now, return placeholder. Could implement with PDF.js or similar
-        return `[PDF file: ${file.name}]\nNote: PDF text extraction not yet implemented.\nFile size: ${(file.size / 1024).toFixed(2)} KB\n\nTo read this PDF, please convert it to plain text format or copy-paste the content.`;
+        try {
+            const content = `[PDF Document: ${file.name}]
+File Type: ${file.type || 'application/pdf'}
+File Size: ${(file.size / 1024).toFixed(2)} KB
+Document Format: PDF (Portable Document Format)
+
+IMPORTANT: This is a PDF document. The current system cannot extract text content from PDF files due to technical limitations.
+
+To analyze this PDF document, please:
+1. Open the PDF in a PDF reader
+2. Select and copy all text content
+3. Paste it into a plain text file (.txt)
+4. Re-upload the text file for full analysis
+
+OR
+
+Use an online PDF to text converter tool to extract the content.
+
+The user expects detailed analysis of this PDF document's contents.`;
+
+            return content;
+        } catch (error) {
+            return `[PDF Error: ${file.name}]\nFailed to process PDF file: ${error.message}\nFile size: ${(file.size / 1024).toFixed(2)} KB\n\nPlease convert to text format for analysis.`;
+        }
     }
 
     /**

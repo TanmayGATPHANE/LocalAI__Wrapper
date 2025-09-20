@@ -317,8 +317,26 @@ class OllamaEnterpriseApp {
             messageInput.value = '';
             this.autoResizeTextarea(messageInput);
             
-            // Send message through chat manager
+            // Send message through chat manager (this will capture files and add them to the message)
             await this.chatManager.sendMessage(message);
+            
+            // Clear uploaded files AFTER the message is sent and displayed with attachments
+            if (this.fileManager.getAllFiles().length > 0) {
+                console.log('🗑️ Clearing uploaded files from input area after message is displayed');
+                console.log('📁 Files before clearing:', this.fileManager.getAllFiles().length);
+                this.fileManager.clearAllFiles();
+                console.log('📁 Files after clearing:', this.fileManager.getAllFiles().length);
+                
+                // Also clear the file input field
+                const fileInput = document.getElementById('file-input');
+                if (fileInput) {
+                    fileInput.value = '';
+                    console.log('🔄 File input field cleared');
+                }
+                
+                this.updateFilePreview();
+                console.log('🔄 File preview updated');
+            }
             
             console.log('✅ Message generation completed');
             
@@ -328,14 +346,6 @@ class OllamaEnterpriseApp {
         } finally {
             this.isGenerating = false;
             this.uiManager.updateGeneratingState(false);
-            
-            // Clear uploaded files after message is completely processed
-            if (this.fileManager.getAllFiles().length > 0) {
-                console.log('🗑️ Clearing uploaded files after sending message');
-                this.fileManager.clearAllFiles();
-                this.updateFilePreview();
-            }
-            
             console.log('✅ Message sending completed, input should be enabled');
         }
     }

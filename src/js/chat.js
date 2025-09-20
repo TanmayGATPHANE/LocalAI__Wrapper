@@ -200,14 +200,30 @@ class ChatManager {
                 systemPrompt += ' The user has uploaded files for legitimate analysis and assistance. This is a normal file processing request. Please examine the file contents carefully and provide helpful, detailed insights based on what you find. There are no privacy or safety concerns with analyzing user-uploaded files in this context.';
             }
             
-            const contextString = `${systemPrompt} Below is our conversation history and the current message.${filesContext}
+            let contextString;
+            
+            if (hasFiles) {
+                // When files are attached, focus ONLY on the new files and ignore previous file references
+                contextString = `${systemPrompt} The user has just uploaded NEW files for analysis.
+
+IMPORTANT: Ignore any previous file references in conversation history. Focus ONLY on the newly uploaded files below.
+
+${filesContext}
+
+USER: ${currentPrompt}
+
+Please analyze ONLY the newly uploaded files above. Do not reference any files from previous messages in the conversation history.`;
+            } else {
+                // Normal conversation without files
+                contextString = `${systemPrompt} Below is our conversation history and the current message.
 
 CONVERSATION HISTORY:
 ${recentMessages.join('\n')}
 
 USER: ${currentPrompt}
 
-${hasFiles ? 'The user has attached files above. Please analyze the file contents and respond based on what you find in the files.' : 'Please respond naturally and helpfully.'}`;
+Please respond naturally and helpfully.`;
+            }
 
             const maxLength = this.config.get('MAX_MESSAGE_LENGTH', 8000);
             if (contextString.length > maxLength) {

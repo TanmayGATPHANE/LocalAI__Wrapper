@@ -86,9 +86,25 @@ class UIManager {
         this.showToast(`Switched to ${newTheme} theme`, 'info');
     }
 
-    addUserMessage(content) {
+    addUserMessage(content, attachedFiles = []) {
         const messageGroup = document.createElement('div');
         messageGroup.className = 'message-group user-group';
+        
+        let attachmentsHtml = '';
+        if (attachedFiles && attachedFiles.length > 0) {
+            attachmentsHtml = `
+                <div class="message-attachments">
+                    ${attachedFiles.map(file => `
+                        <div class="attachment-item">
+                            <i class="fas ${this.getFileIcon(file.type)}"></i>
+                            <span>${file.name}</span>
+                            <small>(${(file.size / 1024).toFixed(2)} KB)</small>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
         messageGroup.innerHTML = `
             <div class="message-avatar">
                 <i class="fas fa-user"></i>
@@ -98,6 +114,7 @@ class UIManager {
                     <span class="sender-name">You</span>
                     <span class="message-time">${this.getCurrentTime()}</span>
                 </div>
+                ${attachmentsHtml}
                 <div class="message-text">${this.escapeHtml(content)}</div>
             </div>
         `;
@@ -390,6 +407,16 @@ class UIManager {
         if (name.includes('claude')) return '🎭';
         if (name.includes('gpt')) return '🧩';
         return '🤖';
+    }
+
+    getFileIcon(fileType) {
+        const icons = {
+            text: 'fa-file-alt',
+            image: 'fa-file-image',
+            document: 'fa-file-pdf',
+            archive: 'fa-file-archive'
+        };
+        return icons[fileType] || 'fa-file';
     }
 
     getToastIcon(type) {

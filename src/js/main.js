@@ -41,6 +41,13 @@ class OllamaEnterpriseApp {
             // Ensure UI is in ready state
             this.uiManager.updateGeneratingState(false);
             
+            // Ensure current model display is updated
+            const modelSelect = document.getElementById('model-select');
+            if (modelSelect && modelSelect.value) {
+                this.uiManager.updateCurrentModel(modelSelect.value);
+                console.log('🎯 Final UI update - Current model:', modelSelect.value);
+            }
+            
             // Debug function for clearing history (temporary)
             window.clearChatHistory = () => {
                 localStorage.removeItem('ollama_enterprise_conversations');
@@ -49,8 +56,27 @@ class OllamaEnterpriseApp {
                 location.reload();
             };
             
+            // Debug function to check input field
+            window.checkInputField = () => {
+                const messageInput = document.getElementById('message-input');
+                console.log('🔍 Input field debug:');
+                console.log('  - Element exists:', !!messageInput);
+                console.log('  - Element disabled:', messageInput?.disabled);
+                console.log('  - Element readonly:', messageInput?.readOnly);
+                console.log('  - Element value:', messageInput?.value);
+                console.log('  - Element style display:', messageInput?.style.display);
+                console.log('  - Element computed style:', window.getComputedStyle(messageInput).display);
+                if (messageInput) {
+                    messageInput.disabled = false;
+                    messageInput.readOnly = false;
+                    messageInput.focus();
+                    console.log('  - Input enabled and focused');
+                }
+            };
+            
             console.log('✅ Application initialized successfully');
             console.log('💡 Debug: Use clearChatHistory() in console to clear conversation history');
+            console.log('💡 Debug: Use checkInputField() to debug input field issues');
             
         } catch (error) {
             console.error('❌ Failed to initialize application:', error);
@@ -68,12 +94,16 @@ class OllamaEnterpriseApp {
             this.storageManager = new StorageManager(this.configManager);
             console.log('✅ Storage Manager initialized');
             
+            // Initialize File Manager
+            this.fileManager = new FileManager(this.configManager);
+            console.log('✅ File Manager initialized');
+            
             // Initialize API Manager
             this.apiManager = new APIManager(this.configManager);
             console.log('✅ API Manager initialized');
             
             // Initialize Chat Manager
-            this.chatManager = new ChatManager(this.configManager, this.apiManager, this.uiManager, this.storageManager);
+            this.chatManager = new ChatManager(this.configManager, this.apiManager, this.uiManager, this.storageManager, this.fileManager);
             console.log('✅ Chat Manager initialized');
             
         } catch (error) {
@@ -148,6 +178,9 @@ class OllamaEnterpriseApp {
         // Global keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
         
+        // File upload event listeners
+        this.initializeFileUploadListeners();
+        
         // Debug: Test input field functionality
         setTimeout(() => {
             const messageInput = document.getElementById('message-input');
@@ -202,15 +235,37 @@ class OllamaEnterpriseApp {
             const models = await this.apiManager.getAvailableModels();
             this.populateModelSelect(models);
             
-            // Set default model
-            const defaultModel = this.configManager.get('DEFAULT_MODEL');
             const modelSelect = document.getElementById('model-select');
-            if (modelSelect && defaultModel) {
-                modelSelect.value = defaultModel;
-                this.uiManager.updateCurrentModel(defaultModel);
+            if (modelSelect && models.length > 0) {
+                // Get default model from current provider config
+                const currentProvider = this.configManager.get('DEFAULT_PROVIDER', 'ollama');
+                const providerConfig = this.configManager.getProviderConfig(currentProvider);
+                const defaultModel = providerConfig?.defaultModel || this.configManager.get('OLLAMA_DEFAULT_MODEL', 'llama3.2:1b');
+                
+                let selectedModel = null;
+                
+                if (defaultModel && models.some(m => (m.name || m) === defaultModel)) {
+                    // Use configured default if it exists in available models
+                    selectedModel = defaultModel;
+                    modelSelect.value = defaultModel;
+                } else {
+                    // Use first available model as fallback
+                    selectedModel = models[0].name || models[0];
+                    modelSelect.value = selectedModel;
+                }
+                
+                // Update UI display
+                this.uiManager.updateCurrentModel(selectedModel);
+                console.log('🤖 Model selected:', selectedModel);
+                console.log('📋 Available models:', models.map(m => m.name || m));
+            } else {
+                // No models available
+                this.uiManager.updateCurrentModel('No models available');
+                console.warn('⚠️ No models available');
             }
         } catch (error) {
             console.error('Failed to load models:', error);
+            this.uiManager.updateCurrentModel('Error loading models');
             this.uiManager.showError('Failed to load available models');
         }
     }
@@ -262,8 +317,26 @@ class OllamaEnterpriseApp {
             messageInput.value = '';
             this.autoResizeTextarea(messageInput);
             
-            // Send message through chat manager
+            // Send message through chat manager (this will capture files and add them to the message)
             await this.chatManager.sendMessage(message);
+            
+            // Clear uploaded files AFTER the message is sent and displayed with attachments
+            if (this.fileManager.getAllFiles().length > 0) {
+                console.log('🗑️ Clearing uploaded files from input area after message is displayed');
+                console.log('📁 Files before clearing:', this.fileManager.getAllFiles().length);
+                this.fileManager.clearAllFiles();
+                console.log('📁 Files after clearing:', this.fileManager.getAllFiles().length);
+                
+                // Also clear the file input field
+                const fileInput = document.getElementById('file-input');
+                if (fileInput) {
+                    fileInput.value = '';
+                    console.log('🔄 File input field cleared');
+                }
+                
+                this.updateFilePreview();
+                console.log('🔄 File preview updated');
+            }
             
             console.log('✅ Message generation completed');
             
@@ -464,6 +537,338 @@ class OllamaEnterpriseApp {
                     </div>
                 </div>
             `;
+        }
+    }
+
+    initializeFileUploadListeners() {
+        const fileUploadBtn = document.getElementById('file-upload-btn');
+        const fileInput = document.getElementById('file-input');
+        const clearFilesBtn = document.getElementById('clear-files-btn');
+        const chatContainer = document.querySelector('.chat-container');
+
+        // File upload button click
+        if (fileUploadBtn && fileInput) {
+            fileUploadBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+        }
+
+        // File input change
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                this.handleFileUpload(e.target.files);
+            });
+        }
+
+        // Clear files button
+        if (clearFilesBtn) {
+            clearFilesBtn.addEventListener('click', () => {
+                this.handleClearFiles();
+            });
+        }
+
+        // Drag and drop functionality
+        if (chatContainer) {
+            chatContainer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                this.showDragOverlay();
+            });
+
+            chatContainer.addEventListener('dragleave', (e) => {
+                // Only hide if leaving the chat container entirely
+                if (!chatContainer.contains(e.relatedTarget)) {
+                    this.hideDragOverlay();
+                }
+            });
+
+            chatContainer.addEventListener('drop', (e) => {
+                e.preventDefault();
+                this.hideDragOverlay();
+                const files = Array.from(e.dataTransfer.files);
+                this.handleFileUpload(files);
+            });
+        }
+    }
+
+    async handleFileUpload(files) {
+        if (!files || files.length === 0) return;
+
+        console.log('📁 Processing', files.length, 'files...');
+        
+        try {
+            const results = await this.fileManager.processFiles(files);
+            
+            // Update UI with file previews
+            this.updateFilePreview();
+            
+            // Show success message
+            const successCount = results.filter(r => r.success).length;
+            const errorCount = results.length - successCount;
+            
+            if (successCount > 0) {
+                this.uiManager.showToast(`${successCount} file(s) uploaded successfully`, 'success');
+            }
+            
+            if (errorCount > 0) {
+                const errors = results.filter(r => !r.success);
+                console.error('File upload errors:', errors);
+                this.uiManager.showToast(`${errorCount} file(s) failed to upload`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('File upload error:', error);
+            this.uiManager.showError('Failed to process files: ' + error.message);
+        }
+    }
+
+    handleClearFiles() {
+        this.fileManager.clearAllFiles();
+        this.updateFilePreview();
+        this.uiManager.showToast('All files cleared', 'info');
+    }
+
+    updateFilePreview() {
+        const filePreviewArea = document.getElementById('file-preview-area');
+        const filePreviewList = document.getElementById('file-preview-list');
+        
+        if (!filePreviewArea || !filePreviewList) return;
+        
+        const files = this.fileManager.getAllFiles();
+        
+        if (files.length === 0) {
+            filePreviewArea.style.display = 'none';
+            return;
+        }
+        
+        filePreviewArea.style.display = 'block';
+        filePreviewList.innerHTML = '';
+        
+        files.forEach(file => {
+            const fileCard = this.createFilePreviewCard(file);
+            filePreviewList.appendChild(fileCard);
+        });
+    }
+
+    createFilePreviewCard(file) {
+        const card = document.createElement('div');
+        card.className = 'file-preview-card';
+        card.dataset.fileId = file.id;
+        
+        const icon = this.getFileIcon(file.type);
+        const size = (file.size / 1024).toFixed(2);
+        
+        card.innerHTML = `
+            <div class="file-preview-icon">
+                <i class="fas ${icon}"></i>
+            </div>
+            <div class="file-preview-info">
+                <div class="file-preview-name" title="${file.name}">${file.name}</div>
+                <div class="file-preview-meta">${file.type} • ${size} KB</div>
+                <div class="file-preview-content">${file.preview}</div>
+            </div>
+            <button class="file-preview-remove" data-file-id="${file.id}" title="Remove file">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        // Add remove button listener
+        const removeBtn = card.querySelector('.file-preview-remove');
+        removeBtn.addEventListener('click', () => {
+            this.fileManager.removeFile(file.id);
+            this.updateFilePreview();
+            this.uiManager.showToast('File removed', 'info');
+        });
+        
+        return card;
+    }
+
+    getFileIcon(fileType) {
+        const icons = {
+            text: 'fa-file-alt',
+            image: 'fa-file-image',
+            document: 'fa-file-pdf',
+            archive: 'fa-file-archive'
+        };
+        return icons[fileType] || 'fa-file';
+    }
+
+    showDragOverlay() {
+        const overlay = document.getElementById('drag-drop-overlay');
+        if (overlay) {
+            overlay.style.display = 'flex';
+        }
+    }
+
+    hideDragOverlay() {
+        const overlay = document.getElementById('drag-drop-overlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+        }
+    }
+
+    initializeFileUploadListeners() {
+        const fileUploadBtn = document.getElementById('file-upload-btn');
+        const fileInput = document.getElementById('file-input');
+        const clearFilesBtn = document.getElementById('clear-files-btn');
+        const chatContainer = document.querySelector('.chat-container');
+
+        // File upload button click
+        if (fileUploadBtn && fileInput) {
+            fileUploadBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+        }
+
+        // File input change
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                this.handleFileUpload(e.target.files);
+            });
+        }
+
+        // Clear files button
+        if (clearFilesBtn) {
+            clearFilesBtn.addEventListener('click', () => {
+                this.handleClearFiles();
+            });
+        }
+
+        // Drag and drop functionality
+        if (chatContainer) {
+            chatContainer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                this.showDragOverlay();
+            });
+
+            chatContainer.addEventListener('dragleave', (e) => {
+                // Only hide if leaving the chat container entirely
+                if (!chatContainer.contains(e.relatedTarget)) {
+                    this.hideDragOverlay();
+                }
+            });
+
+            chatContainer.addEventListener('drop', (e) => {
+                e.preventDefault();
+                this.hideDragOverlay();
+                const files = Array.from(e.dataTransfer.files);
+                this.handleFileUpload(files);
+            });
+        }
+    }
+
+    async handleFileUpload(files) {
+        if (!files || files.length === 0) return;
+
+        console.log('📁 Processing', files.length, 'files...');
+        
+        try {
+            const results = await this.fileManager.processFiles(files);
+            
+            // Update UI with file previews
+            this.updateFilePreview();
+            
+            // Show success message
+            const successCount = results.filter(r => r.success).length;
+            const errorCount = results.length - successCount;
+            
+            if (successCount > 0) {
+                this.uiManager.showToast(`${successCount} file(s) uploaded successfully`, 'success');
+            }
+            
+            if (errorCount > 0) {
+                const errors = results.filter(r => !r.success);
+                console.error('File upload errors:', errors);
+                this.uiManager.showToast(`${errorCount} file(s) failed to upload`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('File upload error:', error);
+            this.uiManager.showError('Failed to process files: ' + error.message);
+        }
+    }
+
+    handleClearFiles() {
+        this.fileManager.clearAllFiles();
+        this.updateFilePreview();
+        this.uiManager.showToast('All files cleared', 'info');
+    }
+
+    updateFilePreview() {
+        const filePreviewArea = document.getElementById('file-preview-area');
+        const filePreviewList = document.getElementById('file-preview-list');
+        
+        if (!filePreviewArea || !filePreviewList) return;
+        
+        const files = this.fileManager.getAllFiles();
+        
+        if (files.length === 0) {
+            filePreviewArea.style.display = 'none';
+            return;
+        }
+        
+        filePreviewArea.style.display = 'block';
+        filePreviewList.innerHTML = '';
+        
+        files.forEach(file => {
+            const fileCard = this.createFilePreviewCard(file);
+            filePreviewList.appendChild(fileCard);
+        });
+    }
+
+    createFilePreviewCard(file) {
+        const card = document.createElement('div');
+        card.className = 'file-preview-card';
+        card.dataset.fileId = file.id;
+        
+        const icon = this.getFileIcon(file.type);
+        const size = (file.size / 1024).toFixed(2);
+        
+        card.innerHTML = `
+            <div class="file-preview-icon">
+                <i class="fas ${icon}"></i>
+            </div>
+            <div class="file-preview-info">
+                <div class="file-preview-name" title="${file.name}">${file.name}</div>
+                <div class="file-preview-meta">${file.type} • ${size} KB</div>
+                <div class="file-preview-content">${file.preview}</div>
+            </div>
+            <button class="file-preview-remove" data-file-id="${file.id}" title="Remove file">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        // Add remove button listener
+        const removeBtn = card.querySelector('.file-preview-remove');
+        removeBtn.addEventListener('click', () => {
+            this.fileManager.removeFile(file.id);
+            this.updateFilePreview();
+            this.uiManager.showToast('File removed', 'info');
+        });
+        
+        return card;
+    }
+
+    getFileIcon(fileType) {
+        const icons = {
+            text: 'fa-file-alt',
+            image: 'fa-file-image',
+            document: 'fa-file-pdf',
+            archive: 'fa-file-archive'
+        };
+        return icons[fileType] || 'fa-file';
+    }
+
+    showDragOverlay() {
+        const overlay = document.getElementById('drag-drop-overlay');
+        if (overlay) {
+            overlay.style.display = 'flex';
+        }
+    }
+
+    hideDragOverlay() {
+        const overlay = document.getElementById('drag-drop-overlay');
+        if (overlay) {
+            overlay.style.display = 'none';
         }
     }
 }

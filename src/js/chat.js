@@ -3,11 +3,12 @@
  * Handles chat functionality with conversation memory
  */
 class ChatManager {
-    constructor(config, apiManager, uiManager, storageManager) {
+    constructor(config, apiManager, uiManager, storageManager, fileManager) {
         this.config = config;
         this.apiManager = apiManager;
         this.uiManager = uiManager;
         this.storageManager = storageManager;
+        this.fileManager = fileManager;
         
         this.isGenerating = false;
         this.messageCount = 0;
@@ -25,15 +26,19 @@ class ChatManager {
         if (!message || this.isGenerating) return;
         
         try {
-            // Add user message to UI
-            this.uiManager.addUserMessage(message);
+            // Get attached files before sending
+            const attachedFiles = this.fileManager ? this.fileManager.getAllFiles() : [];
+            
+            // Add user message to UI with file attachments
+            this.uiManager.addUserMessage(message, attachedFiles);
             
             // Save user message to storage
             await this.storageManager.saveMessage({
                 type: 'user',
                 content: message,
                 timestamp: new Date().toISOString(),
-                conversationId: this.currentConversationId
+                conversationId: this.currentConversationId,
+                attachments: attachedFiles.map(f => ({ name: f.name, type: f.type, size: f.size }))
             });
             
             this.isGenerating = true;
@@ -50,9 +55,25 @@ class ChatManager {
             const currentModel = this.getCurrentModel();
             
             console.log('🔄 DEBUG: Full prompt being sent to Ollama:');
-            console.log('📝 PROMPT:', contextualPrompt);
+            console.log('📝 PROMPT LENGTH:', contextualPrompt.length, 'characters');
+            console.log('📝 PROMPT PREVIEW (first 500 chars):', contextualPrompt.substring(0, 500));
             console.log('🤖 MODEL:', currentModel);
             console.log('💬 ORIGINAL MESSAGE:', message);
+            console.log('📁 ATTACHED FILES:', attachedFiles.length);
+            
+            // Debug: Log file contents being sent
+            if (attachedFiles.length > 0) {
+                console.log('📄 FILES CONTENT PREVIEW:');
+                attachedFiles.forEach((file, idx) => {
+                    console.log(`File ${idx + 1}: ${file.name} (${file.type})`);
+                    if (file.content) {
+                        const preview = file.content.length > 200 ? 
+                            file.content.substring(0, 200) + '...' : 
+                            file.content;
+                        console.log(`Content preview: ${preview}`);
+                    }
+                });
+            }
             
             if (this.config.get('ENABLE_STREAMING', true)) {
                 await this.streamResponse(contextualPrompt, currentModel, botMessageId);
@@ -171,7 +192,30 @@ class ChatManager {
             }
 
             // Build context string
-            const contextString = `You are a helpful AI assistant. Below is our conversation history and the current message.
+            const filesContext = this.fileManager ? this.fileManager.getFilesContext() : '';
+            const hasFiles = filesContext.trim().length > 0;
+            
+            let systemPrompt = 'You are a helpful AI assistant.';
+            if (hasFiles) {
+                systemPrompt += ' The user has uploaded files for legitimate analysis and assistance. This is a normal file processing request. Please examine the file contents carefully and provide helpful, detailed insights based on what you find. There are no privacy or safety concerns with analyzing user-uploaded files in this context.';
+            }
+            
+            let contextString;
+            
+            if (hasFiles) {
+                // When files are attached, focus ONLY on the new files and ignore previous file references
+                contextString = `${systemPrompt} The user has just uploaded NEW files for analysis.
+
+IMPORTANT: Ignore any previous file references in conversation history. Focus ONLY on the newly uploaded files below.
+
+${filesContext}
+
+USER: ${currentPrompt}
+
+Please analyze ONLY the newly uploaded files above. Do not reference any files from previous messages in the conversation history.`;
+            } else {
+                // Normal conversation without files
+                contextString = `${systemPrompt} Below is our conversation history and the current message.
 
 CONVERSATION HISTORY:
 ${recentMessages.join('\n')}
@@ -179,6 +223,7 @@ ${recentMessages.join('\n')}
 USER: ${currentPrompt}
 
 Please respond naturally and helpfully.`;
+            }
 
             const maxLength = this.config.get('MAX_MESSAGE_LENGTH', 8000);
             if (contextString.length > maxLength) {

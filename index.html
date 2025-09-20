@@ -81,15 +81,18 @@
                 </div>
                 
                 <div class="top-bar-right">
-                    <div class="server-status" id="server-indicator">
-                        <div class="status-dot offline"></div>
-                        <span>Server Offline</span>
+                    <div class="server-status disconnected" id="server-status">
+                        <i class="fas fa-circle"></i>
+                        <span>Disconnected</span>
+                    </div>
+                    <div class="current-model" id="current-model-info">
+                        🤖 No model selected
                     </div>
                     <button class="btn-icon" id="settings-toggle">
                         <i class="fas fa-cog"></i>
                     </button>
-                    <button class="btn-icon">
-                        <i class="fas fa-bell"></i>
+                    <button class="btn-icon" id="theme-toggle" title="Toggle theme">
+                        <i class="fas fa-moon"></i>
                     </button>
                 </div>
             </header>
@@ -105,6 +108,19 @@
                 
                 <div class="panel-content">
                     <div class="form-group">
+                        <label for="provider-select">AI Provider</label>
+                        <div class="select-group">
+                            <i class="fas fa-cloud"></i>
+                            <select id="provider-select">
+                                <option value="ollama">Ollama (Local)</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="anthropic">Anthropic Claude</option>
+                                <option value="grok">Grok (X.AI)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
                         <label for="server-url">Server Endpoint</label>
                         <div class="input-group">
                             <i class="fas fa-server"></i>
@@ -117,19 +133,27 @@
                         <div class="select-group">
                             <i class="fas fa-brain"></i>
                             <select id="model-select">
-                                <option value="llama3.2">Llama 3.2 - Latest General Purpose</option>
-                                <option value="llama2">Llama 2 - General Purpose</option>
-                                <option value="codellama">Code Llama - Programming</option>
-                                <option value="mistral">Mistral - Advanced</option>
-                                <option value="llama2:13b">Llama 2 13B - High Performance</option>
+                                <option value="llama3.2:1b">Llama 3.2 1B</option>
+                                <option value="llama3.2">Llama 3.2</option>
+                                <option value="llama2">Llama 2</option>
+                                <option value="codellama">Code Llama</option>
+                                <option value="mistral">Mistral</option>
                             </select>
                         </div>
                     </div>
                     
                     <div class="form-actions">
-                        <button id="connect-btn" class="btn-primary">
-                            <i class="fas fa-plug"></i>
-                            Connect to Server
+                        <button id="test-connection" class="btn-secondary">
+                            <i class="fas fa-wifi"></i>
+                            Test Connection
+                        </button>
+                        <button id="refresh-models" class="btn-primary">
+                            <i class="fas fa-sync"></i>
+                            Refresh Models
+                        </button>
+                        <button id="import-chat" class="btn-secondary">
+                            <i class="fas fa-upload"></i>
+                            Import
                         </button>
                     </div>
                 </div>
@@ -156,20 +180,7 @@
                 
                 <div class="chat-container">
                     <div id="chat-messages" class="chat-messages">
-                        <div class="message-group bot-group">
-                            <div class="message-avatar">
-                                <i class="fas fa-robot"></i>
-                            </div>
-                            <div class="message-content">
-                                <div class="message-header">
-                                    <span class="sender-name">AI Assistant</span>
-                                    <span class="message-time">Just now</span>
-                                </div>
-                                <div class="message-text">
-                                    Welcome to the Ollama Enterprise Console. Please configure your server connection in the settings panel to begin your AI conversation.
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Messages will be dynamically added here -->
                     </div>
                     
                     <div class="chat-input-container">
@@ -187,11 +198,10 @@
                                 id="message-input" 
                                 placeholder="Type your message here... (Shift+Enter for new line)"
                                 rows="1"
-                                disabled
                             ></textarea>
                             
                             <div class="input-actions-right">
-                                <button id="send-btn" class="btn-send" disabled>
+                                <button id="send-btn" class="btn-send">
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
                             </div>
@@ -207,7 +217,7 @@
                                 </div>
                             </div>
                             <div class="chat-info">
-                                <span id="message-count">0 messages</span>
+                                <span><span id="message-count">0</span> messages</span>
                                 <span class="storage-indicator">
                                     <i class="fas fa-save"></i>
                                     Auto-saved locally
@@ -221,16 +231,22 @@
     </div>
 
     <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-overlay" id="loading-overlay" style="display: none;">
         <div class="loading-spinner">
             <div class="spinner"></div>
-            <p>Connecting to AI server...</p>
+            <p class="loading-text">Connecting to AI server...</p>
         </div>
     </div>
 
     <!-- Toast Notifications -->
     <div class="toast-container" id="toast-container"></div>
 
-    <script src="script.js"></script>
+    <!-- Load enterprise modular architecture -->
+    <script src="src/config/config.js"></script>
+    <script src="src/js/api.js"></script>
+    <script src="src/js/storage.js"></script>
+    <script src="src/js/ui.js"></script>
+    <script src="src/js/chat.js"></script>
+    <script src="src/js/main.js"></script>
 </body>
 </html>

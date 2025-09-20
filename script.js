@@ -331,6 +331,11 @@ class OllamaEnterpriseChat {
             // Build conversation context from recent history
             const contextMessages = this.buildConversationContext(prompt);
             
+            console.log('=== DEBUG: Generating response ===');
+            console.log('Original prompt:', prompt);
+            console.log('Context with history:', contextMessages);
+            console.log('ConversationHistory:', this.conversationHistory);
+            
             const response = await fetch(`${this.serverUrl}/api/generate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -385,8 +390,23 @@ class OllamaEnterpriseChat {
         const MAX_CONTEXT_MESSAGES = 10; // Last 10 messages for context
         const MAX_CONTEXT_LENGTH = 4000; // Character limit for context
         
+        console.log('Building context. ConversationHistory length:', this.conversationHistory?.length);
+        console.log('ConversationHistory:', this.conversationHistory);
+        
+        // Debug: Show each message in detail
+        if (this.conversationHistory && this.conversationHistory.length > 0) {
+            this.conversationHistory.forEach((msg, index) => {
+                console.log(`Message ${index}:`, {
+                    sender: msg.sender,
+                    content: msg.content?.substring(0, 100) + '...',
+                    timestamp: msg.timestamp
+                });
+            });
+        }
+        
         // Get current conversation messages from conversationHistory
         if (!this.conversationHistory || this.conversationHistory.length === 0) {
+            console.log('No conversation history, returning current prompt only');
             return currentPrompt; // Return just the current prompt if no history
         }
         
@@ -395,28 +415,32 @@ class OllamaEnterpriseChat {
             .slice(-MAX_CONTEXT_MESSAGES) // Get last N messages
             .filter(msg => msg.content && msg.content.trim()) // Filter out empty messages
             .map(msg => {
-                const role = msg.type === 'user' ? 'Human' : 'Assistant';
+                const role = msg.sender === 'You' ? 'Human' : 'Assistant';
                 const content = msg.content.length > 500 
                     ? msg.content.substring(0, 500) + '...' 
                     : msg.content;
                 return `${role}: ${content}`;
             });
         
+        console.log('Recent messages for context:', recentMessages);
+        
         if (recentMessages.length === 0) {
+            console.log('No valid recent messages, returning current prompt only');
             return currentPrompt; // Return just the current prompt if no valid history
         }
         
         // Build context string
-        let contextString = `Previous conversation context:\n${recentMessages.join('\n\n')}\n\nCurrent question: ${currentPrompt}\n\nPlease respond considering the conversation history above.`;
+        let contextString = `Previous conversation context:\n${recentMessages.join('\n\n')}\n\nCurrent question: ${currentPrompt}\n\nPlease respond considering the conversation history above and remember details from our conversation.`;
         
         // Truncate if too long
         if (contextString.length > MAX_CONTEXT_LENGTH) {
             const truncatePoint = MAX_CONTEXT_LENGTH - 200;
             contextString = contextString.substring(0, truncatePoint) + 
                 '\n\n[Context truncated due to length limits]\n\n' +
-                `Current question: ${currentPrompt}\n\nPlease respond considering the conversation history above.`;
+                `Current question: ${currentPrompt}\n\nPlease respond considering the conversation history above and remember details from our conversation.`;
         }
         
+        console.log('Final context string being sent to AI:', contextString);
         return contextString;
     }
     

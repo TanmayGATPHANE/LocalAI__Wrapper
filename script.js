@@ -385,14 +385,13 @@ class OllamaEnterpriseChat {
         const MAX_CONTEXT_MESSAGES = 10; // Last 10 messages for context
         const MAX_CONTEXT_LENGTH = 4000; // Character limit for context
         
-        // Get current conversation messages
-        const conversation = this.conversations[this.currentConversationId];
-        if (!conversation || !conversation.messages || conversation.messages.length === 0) {
-            return '';
+        // Get current conversation messages from conversationHistory
+        if (!this.conversationHistory || this.conversationHistory.length === 0) {
+            return currentPrompt; // Return just the current prompt if no history
         }
         
         // Filter and format recent messages
-        const recentMessages = conversation.messages
+        const recentMessages = this.conversationHistory
             .slice(-MAX_CONTEXT_MESSAGES) // Get last N messages
             .filter(msg => msg.content && msg.content.trim()) // Filter out empty messages
             .map(msg => {
@@ -404,7 +403,7 @@ class OllamaEnterpriseChat {
             });
         
         if (recentMessages.length === 0) {
-            return '';
+            return currentPrompt; // Return just the current prompt if no valid history
         }
         
         // Build context string

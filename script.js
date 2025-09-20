@@ -314,6 +314,9 @@ class OllamaEnterpriseChat {
         
         const botMessageId = this.addBotMessage('', true);
         
+        // Small delay to ensure message is saved to history
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         try {
             await this.generateResponse(message, botMessageId);
         } catch (error) {
@@ -371,10 +374,14 @@ class OllamaEnterpriseChat {
                         const data = JSON.parse(line);
                         if (data.response) {
                             accumulatedResponse += data.response;
-                            this.updateMessage(messageId, accumulatedResponse);
+                            this.updateMessage(messageId, accumulatedResponse, false); // Not complete yet
                         }
                         
-                        if (data.done) return;
+                        if (data.done) {
+                            // Save the complete response to history
+                            this.updateMessage(messageId, accumulatedResponse, true); // Mark as complete
+                            return;
+                        }
                     } catch (e) {
                         continue;
                     }
@@ -390,8 +397,9 @@ class OllamaEnterpriseChat {
         const MAX_CONTEXT_MESSAGES = 10; // Last 10 messages for context
         const MAX_CONTEXT_LENGTH = 4000; // Character limit for context
         
+        console.log('=== CONVERSATION CONTEXT DEBUG ===');
         console.log('Building context. ConversationHistory length:', this.conversationHistory?.length);
-        console.log('ConversationHistory:', this.conversationHistory);
+        console.log('Full ConversationHistory:', JSON.stringify(this.conversationHistory, null, 2));
         
         // Debug: Show each message in detail
         if (this.conversationHistory && this.conversationHistory.length > 0) {
@@ -406,14 +414,20 @@ class OllamaEnterpriseChat {
         
         // Get current conversation messages from conversationHistory
         if (!this.conversationHistory || this.conversationHistory.length === 0) {
-            console.log('No conversation history, returning current prompt only');
+            console.log('❌ No conversation history, returning current prompt only');
             return currentPrompt; // Return just the current prompt if no history
         }
         
-        // Filter and format recent messages
+        // Filter and format recent messages - exclude current prompt to avoid duplication
         const recentMessages = this.conversationHistory
             .slice(-MAX_CONTEXT_MESSAGES) // Get last N messages
-            .filter(msg => msg.content && msg.content.trim()) // Filter out empty messages
+            .filter(msg => {
+                // Exclude empty messages, current prompt, and system messages about clearing
+                return msg.content && 
+                       msg.content.trim() && 
+                       msg.content !== currentPrompt &&
+                       !msg.content.includes('Chat history cleared');
+            })
             .map(msg => {
                 const role = msg.sender === 'You' ? 'Human' : 'Assistant';
                 const content = msg.content.length > 500 
@@ -422,25 +436,37 @@ class OllamaEnterpriseChat {
                 return `${role}: ${content}`;
             });
         
-        console.log('Recent messages for context:', recentMessages);
+        console.log('✅ Recent messages for context:', recentMessages);
         
         if (recentMessages.length === 0) {
-            console.log('No valid recent messages, returning current prompt only');
+            console.log('❌ No valid recent messages, returning current prompt only');
             return currentPrompt; // Return just the current prompt if no valid history
         }
         
         // Build context string
-        let contextString = `Previous conversation context:\n${recentMessages.join('\n\n')}\n\nCurrent question: ${currentPrompt}\n\nPlease respond considering the conversation history above and remember details from our conversation.`;
+        let contextString = `You are a helpful AI assistant running locally. This is a private conversation between you and the user. You should remember information shared in this conversation.
+
+CONVERSATION HISTORY:
+${recentMessages.join('\n')}
+
+CURRENT USER MESSAGE: ${currentPrompt}
+
+Remember: You can freely reference any information the user has shared in this conversation, including their name, preferences, or any other details. This is a private local chat, not a public service.`;
         
         // Truncate if too long
         if (contextString.length > MAX_CONTEXT_LENGTH) {
-            const truncatePoint = MAX_CONTEXT_LENGTH - 200;
+            const truncatePoint = MAX_CONTEXT_LENGTH - 300;
             contextString = contextString.substring(0, truncatePoint) + 
-                '\n\n[Context truncated due to length limits]\n\n' +
-                `Current question: ${currentPrompt}\n\nPlease respond considering the conversation history above and remember details from our conversation.`;
+                `\n\n[Context truncated due to length limits]
+
+CURRENT USER MESSAGE: ${currentPrompt}
+
+IMPORTANT: Please remember and refer to the conversation history above.`;
         }
         
-        console.log('Final context string being sent to AI:', contextString);
+        console.log('🚀 Final context string being sent to AI:');
+        console.log(contextString);
+        console.log('=== END CONTEXT DEBUG ===');
         return contextString;
     }
     
@@ -544,7 +570,7 @@ class OllamaEnterpriseChat {
         return messageId;
     }
     
-    updateMessage(messageId, content) {
+    updateMessage(messageId, content, isComplete = false) {
         const messageGroup = document.getElementById(messageId);
         if (messageGroup) {
             const messageText = messageGroup.querySelector('.message-text');
@@ -552,14 +578,27 @@ class OllamaEnterpriseChat {
             messageGroup.classList.remove('loading');
             this.scrollToBottom();
             
-            // Save AI response to history when complete
-            if (!content.includes('⏳ Thinking')) {
+            // Only save AI response to history when streaming is complete
+            if (isComplete && !content.includes('⏳ Thinking')) {
                 this.saveMessageToHistory('AI Assistant', content);
             }
         }
     }
     
     saveMessageToHistory(sender, content) {
+        // Don't save empty messages or duplicates
+        if (!content || !content.trim()) return;
+        
+        // Check if this is a duplicate of the last message (for streaming cleanup)
+        const lastMessage = this.conversationHistory[this.conversationHistory.length - 1];
+        if (lastMessage && 
+            lastMessage.sender === sender && 
+            lastMessage.content && 
+            content.startsWith(lastMessage.content)) {
+            // This is a streaming update, remove the old incomplete version
+            this.conversationHistory.pop();
+        }
+        
         const message = {
             sender: sender,
             content: content,
